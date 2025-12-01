@@ -50,6 +50,7 @@ pub fn part_two(input: &str) -> Option<u64> {
     }
     Some(count)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

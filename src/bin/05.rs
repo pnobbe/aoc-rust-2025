@@ -32,12 +32,11 @@ pub fn part_two(input: &str) -> Option<u64> {
     // Merge overlapping ranges
     let mut merged_ranges: Vec<(u64, u64)> = Vec::new();
     for (start, end) in ranges {
-        if let Some(last) = merged_ranges.last_mut() {
-            if start <= last.1 + 1 {
+        if let Some(last) = merged_ranges.last_mut()
+            && start <= last.1 + 1 {
                 last.1 = last.1.max(end);
                 continue;
             }
-        }
         merged_ranges.push((start, end));
     }
 

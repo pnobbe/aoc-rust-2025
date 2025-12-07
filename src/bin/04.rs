@@ -1,9 +1,14 @@
 advent_of_code::solution!(4);
 
 const ADJACENT_OFFSETS: [(isize, isize); 8] = [
-    (-1, -1), (-1, 0), (-1, 1),
-    (0, -1),           (0, 1),
-    (1, -1),  (1, 0),  (1, 1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, -1),
+    (0, 1),
+    (1, -1),
+    (1, 0),
+    (1, 1),
 ];
 
 fn parse_grid(input: &str) -> Vec<Vec<char>> {

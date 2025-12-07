@@ -16,10 +16,7 @@ pub fn part_one(input: &str) -> Option<u64> {
                 .max_by(|&(i1, d1), &(i2, d2)| d1.cmp(d2).then(i2.cmp(&i1)))
                 .unwrap();
 
-            let max_right = digits[max_left_idx + 1..]
-                .iter()
-                .max()
-                .unwrap();
+            let max_right = digits[max_left_idx + 1..].iter().max().unwrap();
 
             max_left * 10 + max_right
         })

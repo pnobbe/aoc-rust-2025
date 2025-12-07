@@ -4,8 +4,7 @@ pub fn part_one(input: &str) -> Option<u64> {
     let sum: i64 = input
         .split(',')
         .flat_map(|range_str| {
-            let (left, right) = range_str.split_once('-')
-                .expect("Invalid range format");
+            let (left, right) = range_str.split_once('-').expect("Invalid range format");
             let start = left.parse::<i64>().unwrap();
             let end = right.parse::<i64>().unwrap();
             start..=end
@@ -29,8 +28,7 @@ pub fn part_two(input: &str) -> Option<u64> {
     let sum: i64 = input
         .split(',')
         .flat_map(|range_str| {
-            let (left, right) = range_str.split_once('-')
-                .expect("Invalid range format");
+            let (left, right) = range_str.split_once('-').expect("Invalid range format");
             let start = left.parse::<i64>().unwrap();
             let end = right.parse::<i64>().unwrap();
             start..=end

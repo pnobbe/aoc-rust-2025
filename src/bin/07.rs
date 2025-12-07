@@ -10,27 +10,30 @@ pub fn part_one(input: &str) -> Option<u64> {
     let split_count = lines
         .iter()
         .skip(1)
-        .fold((HashMap::from([(start_pos, 1)]), 0u64), |(positions, count), line| {
-            let line_bytes = line.as_bytes();
-            let mut next_positions = HashMap::new();
-            let mut splits = 0u64;
+        .fold(
+            (HashMap::from([(start_pos, 1)]), 0u64),
+            |(positions, count), line| {
+                let line_bytes = line.as_bytes();
+                let mut next_positions = HashMap::new();
+                let mut splits = 0u64;
 
-            for pos in positions.keys() {
-                if line_bytes[*pos] == b'^' {
-                    splits += 1;
-                    if *pos > 0 {
-                        next_positions.insert(pos - 1, 1);
+                for pos in positions.keys() {
+                    if line_bytes[*pos] == b'^' {
+                        splits += 1;
+                        if *pos > 0 {
+                            next_positions.insert(pos - 1, 1);
+                        }
+                        if pos + 1 < width {
+                            next_positions.insert(pos + 1, 1);
+                        }
+                    } else {
+                        next_positions.insert(*pos, 1);
                     }
-                    if pos + 1 < width {
-                        next_positions.insert(pos + 1, 1);
-                    }
-                } else {
-                    next_positions.insert(*pos, 1);
                 }
-            }
 
-            (next_positions, count + splits)
-        })
+                (next_positions, count + splits)
+            },
+        )
         .1;
 
     Some(split_count)

@@ -57,7 +57,12 @@ pub fn part_two(input: &str) -> Option<u64> {
         .chain(std::iter::once(&String::new()))
         .fold(
             (Vec::new(), Vec::new(), '+'),
-            |(mut problems, mut current_columns, mut cur_operator): (Vec<Problem>, Vec<u64>, char), line| {
+            |(mut problems, mut current_columns, mut cur_operator): (
+                Vec<Problem>,
+                Vec<u64>,
+                char,
+            ),
+             line| {
                 if line.trim().is_empty() {
                     // end of current problem
                     if !current_columns.is_empty() {
@@ -81,13 +86,14 @@ pub fn part_two(input: &str) -> Option<u64> {
             },
         );
 
-    let result = problems.into_iter().map(|problem| {
-        match problem.operator {
+    let result = problems
+        .into_iter()
+        .map(|problem| match problem.operator {
             '+' => problem.numbers.iter().sum(),
             '*' => problem.numbers.iter().product(),
             _ => 0,
-        }
-    }).sum();
+        })
+        .sum();
 
     Some(result)
 }

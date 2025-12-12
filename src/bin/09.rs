@@ -104,43 +104,55 @@ fn is_rectangle_valid(
     let min_y = y1.min(y2);
     let max_y = y1.max(y2);
 
-    // check the four corners
+    // check the four corners first - fast rejection
     if !is_point_in_or_on_polygon((min_x, min_y), polygon, vertex_set, cache)
+        || !is_point_in_or_on_polygon((max_x, max_y), polygon, vertex_set, cache)
         || !is_point_in_or_on_polygon((min_x, max_y), polygon, vertex_set, cache)
         || !is_point_in_or_on_polygon((max_x, min_y), polygon, vertex_set, cache)
-        || !is_point_in_or_on_polygon((max_x, max_y), polygon, vertex_set, cache)
     {
         return false;
     }
 
+    // check edges - combining top/bottom and left/right
+    for x in (min_x + 1)..max_x {
+        if !is_point_in_or_on_polygon((x, min_y), polygon, vertex_set, cache)
+            || !is_point_in_or_on_polygon((x, max_y), polygon, vertex_set, cache)
+        {
+            return false;
+        }
+    }
+
+    for y in (min_y + 1)..max_y {
+        if !is_point_in_or_on_polygon((min_x, y), polygon, vertex_set, cache)
+            || !is_point_in_or_on_polygon((max_x, y), polygon, vertex_set, cache)
+        {
+            return false;
+        }
+    }
+
+    // for small rectangles, check interior; for larger ones, sample
     let width = max_x - min_x;
     let height = max_y - min_y;
 
-    // check top and bottom edges (excluding corners)
-    for x in (min_x + 1)..max_x {
-        if !is_point_in_or_on_polygon((x, min_y), polygon, vertex_set, cache) {
-            return false;
+    if width * height < 100 {
+        // check all interior points for small rectangles
+        for y in (min_y + 1)..max_y {
+            for x in (min_x + 1)..max_x {
+                if !is_point_in_or_on_polygon((x, y), polygon, vertex_set, cache) {
+                    return false;
+                }
+            }
         }
-        if height > 0 && !is_point_in_or_on_polygon((x, max_y), polygon, vertex_set, cache) {
-            return false;
-        }
-    }
+    } else {
+        // for large rectangles, sample interior points
+        let step_x = ((width - 1) / 10).max(1);
+        let step_y = ((height - 1) / 10).max(1);
 
-    // check left and right edges (excluding corners)
-    for y in (min_y + 1)..max_y {
-        if !is_point_in_or_on_polygon((min_x, y), polygon, vertex_set, cache) {
-            return false;
-        }
-        if width > 0 && !is_point_in_or_on_polygon((max_x, y), polygon, vertex_set, cache) {
-            return false;
-        }
-    }
-
-    // check interior points
-    for y in (min_y + 1)..max_y {
-        for x in (min_x + 1)..max_x {
-            if !is_point_in_or_on_polygon((x, y), polygon, vertex_set, cache) {
-                return false;
+        for y in ((min_y + 1)..max_y).step_by(step_y as usize) {
+            for x in ((min_x + 1)..max_x).step_by(step_x as usize) {
+                if !is_point_in_or_on_polygon((x, y), polygon, vertex_set, cache) {
+                    return false;
+                }
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, VecDeque};
 
 advent_of_code::solution!(9);
 
@@ -6,8 +6,10 @@ fn parse_tiles(input: &str) -> Vec<(u64, u64)> {
     input
         .lines()
         .filter_map(|line| {
-            let parts: Vec<u64> = line.split(',').filter_map(|s| s.parse().ok()).collect();
-            (parts.len() == 2).then(|| (parts[0], parts[1]))
+            let mut parts = line.split(',');
+            let x = parts.next()?.parse().ok()?;
+            let y = parts.next()?.parse().ok()?;
+            Some((x, y))
         })
         .collect()
 }
@@ -31,197 +33,187 @@ pub fn part_one(input: &str) -> Option<u64> {
         }
     }
 
-    Some(max_area as u64)
+    Some(max_area)
 }
 
-#[inline]
-fn is_point_in_or_on_polygon(
-    point: (i64, i64),
-    polygon: &[(i64, i64)],
-    vertex_set: &HashSet<(i64, i64)>,
-    cache: &mut HashMap<(i64, i64), bool>,
-) -> bool {
-    if let Some(&result) = cache.get(&point) {
-        return result;
-    }
+// Compress coordinates to reduce grid size
+fn compress_coordinates(tiles: &[(u64, u64)]) -> (HashMap<u64, usize>, HashMap<u64, usize>) {
+    let mut x_coords: Vec<u64> = tiles.iter().map(|&(x, _)| x).collect();
+    let mut y_coords: Vec<u64> = tiles.iter().map(|&(_, y)| y).collect();
 
-    // check if point is a vertex
-    if vertex_set.contains(&point) {
-        cache.insert(point, true);
-        return true;
-    }
+    // Add boundary coordinates
+    x_coords.push(u64::MIN);
+    x_coords.push(u64::MAX);
+    y_coords.push(u64::MIN);
+    y_coords.push(u64::MAX);
 
-    let (px, py) = point;
-    let n = polygon.len();
+    x_coords.sort_unstable();
+    x_coords.dedup();
+    y_coords.sort_unstable();
+    y_coords.dedup();
 
-    // check if point is on an edge
-    for i in 0..n {
-        let (x1, y1) = polygon[i];
-        let (x2, y2) = polygon[(i + 1) % n];
+    let x_map: HashMap<u64, usize> = x_coords.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+    let y_map: HashMap<u64, usize> = y_coords.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
-        if x1 == x2 && px == x1 {
-            if py >= y1.min(y2) && py <= y1.max(y2) {
-                cache.insert(point, true);
-                return true;
-            }
-        } else if y1 == y2 && py == y1 {
-            if px >= x1.min(x2) && px <= x1.max(x2) {
-                cache.insert(point, true);
-                return true;
-            }
-        }
-    }
-
-    // ray cast to check if point is inside polygon
-    let mut inside = false;
-    let mut j = n - 1;
-    for i in 0..n {
-        let (xi, yi) = polygon[i];
-        let (xj, yj) = polygon[j];
-
-        if ((yi > py) != (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
-            inside = !inside;
-        }
-        j = i;
-    }
-
-    cache.insert(point, inside);
-    inside
+    (x_map, y_map)
 }
 
-#[inline]
-fn is_rectangle_valid(
-    x1: i64,
-    y1: i64,
-    x2: i64,
-    y2: i64,
-    polygon: &[(i64, i64)],
-    vertex_set: &HashSet<(i64, i64)>,
-    cache: &mut HashMap<(i64, i64), bool>,
-) -> bool {
-    let min_x = x1.min(x2);
-    let max_x = x1.max(x2);
-    let min_y = y1.min(y2);
-    let max_y = y1.max(y2);
+// Mark polygon edges on the grid
+fn mark_polygon_edges(
+    compressed_tiles: &[(usize, usize)],
+    width: usize,
+    height: usize,
+) -> Vec<Vec<bool>> {
+    let mut grid = vec![vec![false; width]; height];
+    let n = compressed_tiles.len();
 
-    // check the four corners first - fast rejection
-    if !is_point_in_or_on_polygon((min_x, min_y), polygon, vertex_set, cache)
-        || !is_point_in_or_on_polygon((max_x, max_y), polygon, vertex_set, cache)
-        || !is_point_in_or_on_polygon((min_x, max_y), polygon, vertex_set, cache)
-        || !is_point_in_or_on_polygon((max_x, min_y), polygon, vertex_set, cache)
-    {
-        return false;
-    }
+    for i in 0..n {
+        let (x1, y1) = compressed_tiles[i];
+        let (x2, y2) = compressed_tiles[(i + 1) % n];
 
-    // check edges - combining top/bottom and left/right
-    for x in (min_x + 1)..max_x {
-        if !is_point_in_or_on_polygon((x, min_y), polygon, vertex_set, cache)
-            || !is_point_in_or_on_polygon((x, max_y), polygon, vertex_set, cache)
-        {
-            return false;
-        }
-    }
+        let min_x = x1.min(x2);
+        let max_x = x1.max(x2);
+        let min_y = y1.min(y2);
+        let max_y = y1.max(y2);
 
-    for y in (min_y + 1)..max_y {
-        if !is_point_in_or_on_polygon((min_x, y), polygon, vertex_set, cache)
-            || !is_point_in_or_on_polygon((max_x, y), polygon, vertex_set, cache)
-        {
-            return false;
-        }
-    }
-
-    // for small rectangles, check interior; for larger ones, sample
-    let width = max_x - min_x;
-    let height = max_y - min_y;
-
-    if width * height < 100 {
-        // check all interior points for small rectangles
-        for y in (min_y + 1)..max_y {
-            for x in (min_x + 1)..max_x {
-                if !is_point_in_or_on_polygon((x, y), polygon, vertex_set, cache) {
-                    return false;
-                }
-            }
-        }
-    } else {
-        // for large rectangles, sample interior points
-        let step_x = ((width - 1) / 10).max(1);
-        let step_y = ((height - 1) / 10).max(1);
-
-        for y in ((min_y + 1)..max_y).step_by(step_y as usize) {
-            for x in ((min_x + 1)..max_x).step_by(step_x as usize) {
-                if !is_point_in_or_on_polygon((x, y), polygon, vertex_set, cache) {
-                    return false;
-                }
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                grid[y][x] = true;
             }
         }
     }
 
-    true
+    grid
+}
+
+// Flood fill to mark outside cells
+fn flood_fill_outside(grid: &mut Vec<Vec<i32>>, inside_grid: &[Vec<bool>]) {
+    let height = grid.len();
+    let width = grid[0].len();
+    let mut queue = VecDeque::new();
+
+    // Start from origin (0, 0) which is guaranteed to be outside
+    queue.push_back((0, 0));
+    grid[0][0] = 0; // Mark as outside
+
+    let directions = [(0, 1), (1, 0), (0, -1), (-1, 0)];
+
+    while let Some((y, x)) = queue.pop_front() {
+        for &(dy, dx) in &directions {
+            let ny = (y as isize + dy) as usize;
+            let nx = (x as isize + dx) as usize;
+
+            if ny < height && nx < width && grid[ny][nx] == 2 && !inside_grid[ny][nx] {
+                grid[ny][nx] = 0; // Mark as outside
+                queue.push_back((ny, nx));
+            }
+        }
+    }
+}
+
+// Build 2D prefix sum array
+fn build_prefix_sum(grid: &mut Vec<Vec<i32>>) {
+    let height = grid.len();
+    let width = grid[0].len();
+
+    for y in 1..height {
+        for x in 1..width {
+            let value = if grid[y][x] == 0 { 0 } else { 1 };
+            grid[y][x] = value + grid[y - 1][x] + grid[y][x - 1] - grid[y - 1][x - 1];
+        }
+    }
+
+    // Handle first row and column
+    for x in 1..width {
+        let value = if grid[0][x] == 0 { 0 } else { 1 };
+        grid[0][x] = value + grid[0][x - 1];
+    }
+
+    for y in 1..height {
+        let value = if grid[y][0] == 0 { 0 } else { 1 };
+        grid[y][0] = value + grid[y - 1][0];
+    }
+
+    grid[0][0] = if grid[0][0] == 0 { 0 } else { 1 };
+}
+
+// Query rectangle sum using prefix sum array
+fn query_rectangle_sum(grid: &[Vec<i32>], x1: usize, y1: usize, x2: usize, y2: usize) -> i32 {
+    let result = grid[y2][x2];
+
+    let left = if x1 > 0 { grid[y2][x1 - 1] } else { 0 };
+    let top = if y1 > 0 { grid[y1 - 1][x2] } else { 0 };
+    let top_left = if x1 > 0 && y1 > 0 { grid[y1 - 1][x1 - 1] } else { 0 };
+
+    result - left - top + top_left
 }
 
 pub fn part_two(input: &str) -> Option<u64> {
     let tiles = parse_tiles(input);
     let n = tiles.len();
 
-    // collect unique x, y coordinates
-    let x_coords: Vec<u64> = tiles.iter().map(|&(x, _)| x).collect::<HashSet<_>>().into_iter().collect();
-    let y_coords: Vec<u64> = tiles.iter().map(|&(_, y)| y).collect::<HashSet<_>>().into_iter().collect();
-
-    let mut x_sorted = x_coords;
-    let mut y_sorted = y_coords;
-    x_sorted.sort_unstable();
-    y_sorted.sort_unstable();
-
-    // create mapping from original to compressed coordinates
-    let compress_x = |x: u64| x_sorted.binary_search(&x).unwrap() as i64;
-    let compress_y = |y: u64| y_sorted.binary_search(&y).unwrap() as i64;
-
-    // build compressed polygon
-    let compressed_polygon: Vec<(i64, i64)> = tiles
+    // Compress coordinates
+    let (x_map, y_map) = compress_coordinates(&tiles);
+    let compressed_tiles: Vec<(usize, usize)> = tiles
         .iter()
-        .map(|&(x, y)| (compress_x(x), compress_y(y)))
+        .map(|&(x, y)| (*x_map.get(&x).unwrap(), *y_map.get(&y).unwrap()))
         .collect();
 
-    // create vertex set for O(1) lookup
-    let vertex_set: HashSet<(i64, i64)> = compressed_polygon.iter().copied().collect();
+    let width = x_map.len();
+    let height = y_map.len();
 
-    let mut max_area = 0;
+    // Mark polygon edges
+    let inside_grid = mark_polygon_edges(&compressed_tiles, width, height);
 
-    // pre-allocate cache with reasonable capacity
-    let estimated_points = (x_sorted.len() * y_sorted.len()).min(10000);
-    let mut cache: HashMap<(i64, i64), bool> = HashMap::with_capacity(estimated_points);
-
-    // sort pairs by decreasing area to find the maximum faster
-    let mut pairs: Vec<(usize, usize, u64)> = Vec::with_capacity(n * (n - 1) / 2);
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let width = tiles[i].0.abs_diff(tiles[j].0) + 1;
-            let height = tiles[i].1.abs_diff(tiles[j].1) + 1;
-            let area = width * height;
-            pairs.push((i, j, area));
+    // Create grid: 0 = outside, 1 = inside, 2 = unknown
+    let mut grid = vec![vec![2; width]; height];
+    for y in 0..height {
+        for x in 0..width {
+            if inside_grid[y][x] {
+                grid[y][x] = 1;
+            }
         }
     }
-    pairs.sort_unstable_by_key(|&(_, _, area)| std::cmp::Reverse(area));
 
-    for &(i, j, area) in &pairs {
-        if area <= max_area {
-            break; // all remaining pairs have smaller areas
+    // Flood fill to mark outside cells
+    flood_fill_outside(&mut grid, &inside_grid);
+
+    // All remaining cells (value 2) are inside
+    for y in 0..height {
+        for x in 0..width {
+            if grid[y][x] == 2 {
+                grid[y][x] = 1;
+            }
         }
+    }
 
-        let (cx1, cy1) = compressed_polygon[i];
-        let (cx2, cy2) = compressed_polygon[j];
+    // Build prefix sum array
+    build_prefix_sum(&mut grid);
 
-        // skip if the compressed rectangle is tiny (adjacent coordinates)
-        let comp_width = (cx2 - cx1).abs();
-        let comp_height = (cy2 - cy1).abs();
-        if comp_width == 0 || comp_height == 0 {
-            continue;
-        }
+    // Check all tile pairs
+    let mut max_area = 0;
 
-        // check rectangle validity in compressed space
-        if is_rectangle_valid(cx1, cy1, cx2, cy2, &compressed_polygon, &vertex_set, &mut cache) {
-            max_area = area;
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let (cx1, cy1) = compressed_tiles[i];
+            let (cx2, cy2) = compressed_tiles[j];
+
+            let min_x = cx1.min(cx2);
+            let max_x = cx1.max(cx2);
+            let min_y = cy1.min(cy2);
+            let max_y = cy1.max(cy2);
+
+            let expected = ((max_x - min_x + 1) * (max_y - min_y + 1)) as i32;
+            let actual = query_rectangle_sum(&grid, min_x, min_y, max_x, max_y);
+
+            if expected == actual {
+                let (x1, y1) = tiles[i];
+                let (x2, y2) = tiles[j];
+                let width = x2.abs_diff(x1) + 1;
+                let height = y2.abs_diff(y1) + 1;
+                let area = width * height;
+                max_area = max_area.max(area);
+            }
         }
     }
 

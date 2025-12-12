@@ -40,16 +40,22 @@ struct Problem {
 
 pub fn part_two(input: &str) -> Option<u64> {
     let lines: Vec<&str> = input.lines().collect();
+    
+    if lines.is_empty() {
+        return None;
+    }
+    
+    let width = lines[0].len();
+    let height = lines.len();
 
-    // transpose the lines
-    let transposed: Vec<String> = (0..lines[0].len())
-        .map(|i| {
-            lines
-                .iter()
-                .map(|line| line.chars().nth(i).unwrap_or(' '))
-                .collect()
-        })
-        .collect();
+    // Transpose efficiently by building each column directly
+    let mut transposed: Vec<String> = vec![String::with_capacity(height); width];
+    
+    for line in &lines {
+        for (col_idx, ch) in line.chars().enumerate() {
+            transposed[col_idx].push(ch);
+        }
+    }
 
     // parse problems by reading vertically (column by column)
     let (problems, _, _) = transposed

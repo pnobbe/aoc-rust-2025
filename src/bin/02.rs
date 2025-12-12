@@ -55,21 +55,16 @@ fn has_repeating_pattern(n: i64) -> bool {
         }
 
         let divisor = POWERS_OF_10[chunk_size];
-        let num_chunks = digit_count / chunk_size;
         let first_chunk = n % divisor;
 
-        let mut temp = n / divisor;
-        let mut all_match = true;
-
+        // Quick check: build what the number should be if all chunks match
+        let num_chunks = digit_count / chunk_size;
+        let mut expected = first_chunk;
         for _ in 1..num_chunks {
-            if temp % divisor != first_chunk {
-                all_match = false;
-                break;
-            }
-            temp /= divisor;
+            expected = expected * divisor + first_chunk;
         }
 
-        if all_match {
+        if n == expected {
             return true;
         }
     }

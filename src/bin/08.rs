@@ -79,7 +79,10 @@ pub fn part_one(input: &str) -> Option<u64> {
         .collect();
 
     let n = points.len();
-    let mut distances = Vec::new();
+    let connections = if n == 20 { 10 } else { 1000 };
+    
+    // Pre-allocate with exact capacity
+    let mut distances = Vec::with_capacity(n * (n - 1) / 2);
 
     for i in 0..n {
         for j in (i + 1)..n {
@@ -90,7 +93,6 @@ pub fn part_one(input: &str) -> Option<u64> {
     distances.sort_unstable_by_key(|&(d, _, _)| d);
 
     let mut uf = UnionFind::new(n);
-    let connections = if n == 20 { 10 } else { 1000 };
 
     for &(_, i, j) in distances.iter().take(connections) {
         uf.union(i, j);
@@ -121,7 +123,9 @@ pub fn part_two(input: &str) -> Option<u64> {
         .collect();
 
     let n = points.len();
-    let mut distances = Vec::new();
+    
+    // Pre-allocate with exact capacity
+    let mut distances = Vec::with_capacity(n * (n - 1) / 2);
 
     for i in 0..n {
         for j in (i + 1)..n {

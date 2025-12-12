@@ -44,9 +44,56 @@ fn solve_with_ilp(targets: &[u64], buttons: &[Vec<usize>]) -> u64 {
 }
 
 fn solve_with_bitmask(target: &[bool], buttons: &[Vec<usize>]) -> usize {
+    use std::collections::{VecDeque, HashSet};
+
+    let n = target.len();
+    let initial_state = vec![false; n];
+
+    // Quick check if already at target
+    if initial_state == target {
+        return 0;
+    }
+
+    // BFS to find minimum button presses
+    let mut queue = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    // Convert state to u64 for faster hashing (lights are typically < 64)
+    let state_to_key = |state: &[bool]| -> u64 {
+        state.iter().enumerate().fold(0u64, |acc, (i, &b)| {
+            acc | ((b as u64) << i)
+        })
+    };
+
+    let target_key = state_to_key(target);
+    queue.push_back((initial_state, 0));
+    visited.insert(0u64);
+
+    while let Some((state, presses)) = queue.pop_front() {
+        // Try pressing each button
+        for button in buttons {
+            let mut new_state = state.clone();
+            for &light in button {
+                new_state[light] = !new_state[light];
+            }
+
+            let key = state_to_key(&new_state);
+
+            if key == target_key {
+                return presses + 1;
+            }
+
+            if !visited.contains(&key) {
+                visited.insert(key);
+                queue.push_back((new_state, presses + 1));
+            }
+        }
+    }
+
+    // Fallback to original brute force if BFS fails (shouldn't happen)
     (0..(1 << buttons.len()))
         .filter_map(|mask| {
-            let mut state = vec![false; target.len()];
+            let mut state = vec![false; n];
             let mut presses = 0;
 
             for (i, button) in buttons.iter().enumerate() {
